@@ -1,19 +1,22 @@
-# Short programm for testing microphyton
-# Author: Fabian Borrmann
+# Short programm for testing microphyton on esp32
+# Author: King Keule
+# https://github.com/KingKeule/ESP32_Toolbox_MicroPython
 
 # Define menu entries
 def showMenu():
    print('###### ESP32 Toolbox (MicroPython) ######')
-   print(' 0. Exit toolbox')
-   print(' 1. System info') 
-   print(' 2. Network status')
-   print(' 3. WLAN - manager')
-   print(' 4. WLAN - port scanner')
-   print(' 5. WLAN - deauther')
-   print(' 6. Bluetooth LE - scan')
-   print(' 7. Time synchronization')
-   print(' 8. Directory overview')
-   print(' 9. Debug options')
+   print('  0. Exit toolbox')
+   print('  1. System info') 
+   print('  2. Network status')
+   print('  3. WLAN - manager')
+   print('  4. WLAN - port scanner')
+   print('  5. WLAN - deauther')
+   print('  6. Bluetooth LE - scan')
+   print('  7. Time synchronization')
+   print('  8. Directory overview')
+   print('  9. Debug options')
+   print(' 10. OLED display (SSD1306)')
+
 
    print('-----------------------------------------')
 
@@ -26,7 +29,8 @@ def showSelectedMenuEntry(argument):
                 6: scanBLE,
                 7: timeSync,
                 8: fileManager,
-                9: debugOpt
+                9: debugOpt,
+               10: oledSSD1306
              }
    switcher.get(argument, lambda:'Invalid menu entry.')()
 
@@ -267,6 +271,38 @@ def fileManager():
    import os
    print('###### Directory overview ######')    
    printSubDir('/')
+
+# oled matrix with 128 x 32
+# driver: https://github.com/micropython/micropython/blob/master/drivers/display/ssd1306.py
+# https://docs.micropython.org/en/latest/esp8266/tutorial/ssd1306.html
+def oledSSD1306():
+   from machine import Pin, I2C
+   from ssd1306 import SSD1306_I2C
+   import time 
+
+   print('###### OLED display (SSD1306) ######')    
+   print('activate display and show text')    
+   # use of I2C interface instead of software/hardware SPI interface
+   i2c = I2C(1, scl=Pin(10), sda=Pin(9), freq = 400000)
+   oled = SSD1306_I2C(128, 32, i2c, 0x3c) # default address 0x3C of the device
+   oled.contrast(100)  # brightness (0 - 255)
+
+   oled.fill(0) # clear display to remove old drawings
+   oled.text("ESP32 Toolbox", 0, 0)
+   oled.text("(MicroPython)", 0, 12)
+   oled.text("by KingKeule", 0, 24)
+   oled.rect(112, 0, 15, 31, 1) # x, y, width, height, color
+   oled.show()
+   time.sleep(1)
+ 
+   for column in range(1, 31):
+      oled.hline(113, column, 13, 1) # x, y, width, color
+      oled.show()
+      time.sleep(0.1)
+
+   time.sleep(2)
+   print('deactivate display')
+   oled.poweroff()
 
 # -------------------- Toolbox loop --------------------
 while True:  
