@@ -19,6 +19,7 @@ def showMenu():
    print('  8. Directory overview')
    print('  9. Debug options')
    print(' 10. I2C - display (SSD1306)')
+   print(' 11. Touch pin check')
    print('-----------------------------------------')
 
 def showSelectedMenuEntry(argument):
@@ -31,7 +32,8 @@ def showSelectedMenuEntry(argument):
                 7: timeSync,
                 8: fileManager,
                 9: debugOpt,
-               10: i2cDisplaySSD1306
+               10: i2cDisplaySSD1306,
+               11: touchPinCheck
              }
    switcher.get(argument, lambda:'Invalid menu entry.')()
 
@@ -328,6 +330,34 @@ def i2cDisplaySSD1306():
    time.sleep(2)
    print('Deactivate display')
    oled.poweroff()
+
+#https://docs.micropython.org/en/latest/esp32/quickref.html#capacitive-touch
+def touchPinCheck():
+   from machine import TouchPad, Pin
+   import time
+
+   #configure touchpin(s): GPIO32 (Touch 9), GPIO33 (Touch 8)
+   tPin32 = TouchPad(Pin(32))
+   tPin33 = TouchPad(Pin(33))
+   
+   print('###### Touch pin check ######')
+   print(' NOTE: This check only works if the touch pin was not tapped during startup!')
+   print(' You have 10 seconds to tap a configured touch pin ;-)')
+   
+   startValuetPin32 = tPin32.read()
+   startValuetPin33 = tPin33.read()
+ 
+   for sec in range (20):
+      curValuetPin32 = tPin32.read()
+      curValuetPin33 = tPin33.read()
+
+      # Checking whether the current value is less than 50% of the maximum value measured at startup
+      if ((curValuetPin32 / startValuetPin32 * 100) < 50): 
+         print(' Touch pin (GPIO32) tapped')
+      if ((curValuetPin33 / startValuetPin33 * 100) < 50): 
+         print(' Touch pin (GPIO33) tapped')  
+
+      time.sleep(0.5)
 
 # -------------------- Toolbox loop --------------------
 while True:  
