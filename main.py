@@ -1,6 +1,9 @@
+#--------------------------------------------------------------
 # Short programm for testing microphyton on esp32
 # Author: King Keule
-# https://github.com/KingKeule/ESP32_Toolbox_MicroPython
+# GitHub: https://github.com/KingKeule/ESP32_Toolbox_MicroPython
+#--------------------------------------------------------------
+
 
 # Define menu entries
 def showMenu():
@@ -15,9 +18,7 @@ def showMenu():
    print('  7. Time synchronization')
    print('  8. Directory overview')
    print('  9. Debug options')
-   print(' 10. OLED display (SSD1306)')
-
-
+   print(' 10. I2C - display (SSD1306)')
    print('-----------------------------------------')
 
 def showSelectedMenuEntry(argument):
@@ -30,7 +31,7 @@ def showSelectedMenuEntry(argument):
                 7: timeSync,
                 8: fileManager,
                 9: debugOpt,
-               10: oledSSD1306
+               10: i2cDisplaySSD1306
              }
    switcher.get(argument, lambda:'Invalid menu entry.')()
 
@@ -272,36 +273,60 @@ def fileManager():
    print('###### Directory overview ######')    
    printSubDir('/')
 
-# oled matrix with 128 x 32
 # driver: https://github.com/micropython/micropython/blob/master/drivers/display/ssd1306.py
 # https://docs.micropython.org/en/latest/esp8266/tutorial/ssd1306.html
-def oledSSD1306():
-   from machine import Pin, I2C
+def i2cDisplaySSD1306():
+   from machine import Pin, SoftI2C
    from ssd1306 import SSD1306_I2C
    import time 
 
-   print('###### OLED display (SSD1306) ######')    
-   print('activate display and show text')    
-   # use of I2C interface instead of software/hardware SPI interface
-   i2c = I2C(1, scl=Pin(10), sda=Pin(9), freq = 400000)
-   oled = SSD1306_I2C(128, 32, i2c, 0x3c) # default address 0x3C of the device
-   oled.contrast(100)  # brightness (0 - 255)
+   print('###### I2C - display (SSD1306) ######')
+   # use of SoftI2C interface due I2C(-1, ...) is deprecated
+   # ESP32 Dev Kit C V4 - I2C pins are: SDA: 21, SCL: 22
+   # due to lack of space on the breadboard the following pins are used alternatively SDA: GPIO9 (D2), SCL: GPIO10 (D3)
+   i2cBus = SoftI2C(scl=Pin(10), sda=Pin(9), freq = 400000) # I2C Fast Mode (Fm): 0,4 Mbit/s
+   
+   i2cBusDevices = i2cBus.scan()
+   print('Scan for devices on I2C bus')
 
+   if len(i2cBusDevices) == 0:
+     print("No i2c device found. Please check your circuit!")
+     return
+   else:
+    print('Number of devices on I2C bus: %d' % len(i2cBusDevices))
+   
+   addrDisplay = 60  # default address of the display: 0x3C
+   for deviceAddr in i2cBusDevices: 
+      if deviceAddr == addrDisplay:
+         oledIsConnected = True
+         print('Found display on I2C bus at address: %s' %hex(deviceAddr))
+
+   if not oledIsConnected:
+      print("No I2C dislay found. Please check your circuit!")
+      return
+  
+   print('Activate display and show text')
+   oledWidth = 128
+   oledHeight = 32
+   oled = SSD1306_I2C(oledWidth, oledHeight, i2cBus, addrDisplay) 
+   oled.contrast(100)  # brightness (0 - 255)
+   oled.invert(False)
    oled.fill(0) # clear display to remove old drawings
    oled.text("ESP32 Toolbox", 0, 0)
    oled.text("(MicroPython)", 0, 12)
    oled.text("by KingKeule", 0, 24)
-   oled.rect(112, 0, 15, 31, 1) # x, y, width, height, color
+   oled.rect(113, 0, 15, 32, 1) # x, y, width, height, color
    oled.show()
+   
    time.sleep(1)
  
    for column in range(1, 31):
-      oled.hline(113, column, 13, 1) # x, y, width, color
+      oled.hline(114, column, 13, 1) # x, y, width, color
       oled.show()
       time.sleep(0.1)
 
    time.sleep(2)
-   print('deactivate display')
+   print('Deactivate display')
    oled.poweroff()
 
 # -------------------- Toolbox loop --------------------
@@ -315,3 +340,4 @@ while True:
    showSelectedMenuEntry(userSelectedMenuEntry)
    print('')
    time.sleep(2)
+
