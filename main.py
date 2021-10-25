@@ -35,7 +35,7 @@ def showSelectedMenuEntry(argument):
                10: i2cDisplaySSD1306,
                11: touchPinCheck
              }
-   switcher.get(argument, lambda:'Invalid menu entry.')()
+   switcher.get(argument, lambda: print('Invalid menu entry. Please select a available menu entry.'))()
 
 # -------------------- Toolbox functions --------------------
 def systemInfo(): 
@@ -134,8 +134,13 @@ def scanWLAN():
        print(" %2d: SSID: %-25s | Channel: %2d | RSSI: %d | Hidden: %05s | Auth: %s" %
             (i, ssid.decode('utf-8'), channel, rssi, hidden, AUTHMODES.get(authmode, 'unknown')))
        i += 1
+   
+   try:
+      userSelectedWlan = int(input("Select WLAN: "))
+   except ValueError:
+      print('Invalid input. Please enter a valid number next time.')
+      return
 
-   userSelectedWlan = int(input("Select WLAN: "))
    selectedWLAN = wlanNetworks[userSelectedWlan-1]
    ssid = selectedWLAN[0]
    authmode = selectedWLAN[4]
@@ -241,15 +246,12 @@ def timeSync():
    print('Local time after synchronization:   Date: %02d.%02d.%d   Time: %02d:%02d:%02d' %
          (time.localtime()[2], time.localtime()[1], time.localtime()[0], time.localtime()[3], time.localtime()[4], time.localtime()[5]))
 
-def debugOpt(): #todo not working
+def debugOpt():
    import esp
-   import sys
    
    print('###### Debug options ######')
-   #print(' - Debug mode: %s' % esp.osdebug)
-   #esp.osdebug(None)
-   #esp.osdebug("*", esp.LOG_VERBOSE)
-   esp.osdebug(0, esp.LOG_DEBUG)
+   print(' Activate debug level "VERBOSE"')
+   esp.osdebug(0, esp.LOG_VERBOSE)
 
 #subfunction for fileManager
 #print all file names of a given folder and recursive call of the same function for all subfolders in the given folder
@@ -363,11 +365,15 @@ def touchPinCheck():
 while True:  
    import time 
 
-   showMenu()   
-   userSelectedMenuEntry = int(input("Select menu entry: "))
-   if userSelectedMenuEntry == 0: # stop the loop
-       break
-   showSelectedMenuEntry(userSelectedMenuEntry)
+   showMenu()
+   try:
+      userSelectedMenuEntry = int(input("Select menu entry: "))
+      if userSelectedMenuEntry == 0: # stop the loop
+         break
+      showSelectedMenuEntry(userSelectedMenuEntry)
+   except ValueError:
+      print('Invalid input. Please enter a valid number.')
+        
    print('')
    time.sleep(2)
 
