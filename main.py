@@ -4,10 +4,12 @@
 # GitHub: https://github.com/KingKeule/ESP32_Toolbox_MicroPython
 #--------------------------------------------------------------
 
+ESP_BOARD_NAME = 'ESP-32 Dev Kit C V4'
 
 # Define menu entries
 def showMenu():
    print('###### ESP32 Toolbox (MicroPython) ######')
+   print('###### on a %s    ######' % ESP_BOARD_NAME)
    print('  0. Exit toolbox')
    print('  1. System info') 
    print('  2. Network status')
@@ -20,6 +22,7 @@ def showMenu():
    print('  9. Debug options')
    print(' 10. I2C - display (SSD1306)')
    print(' 11. Touch pin check')
+   print(' 12. UART - reader/sender')
    print('-----------------------------------------')
 
 def showSelectedMenuEntry(argument):
@@ -33,9 +36,10 @@ def showSelectedMenuEntry(argument):
                 8: fileManager,
                 9: debugOpt,
                10: i2cDisplaySSD1306,
-               11: touchPinCheck
+               11: touchPinCheck,
+               12: uartReadSend 
              }
-   switcher.get(argument, lambda: print('Invalid menu entry. Please select a available menu entry.'))()
+   switcher.get(argument, lambda: print('Invalid menu entry. Please select an available menu entry.'))()
 
 # -------------------- Toolbox functions --------------------
 def systemInfo(): 
@@ -338,28 +342,80 @@ def touchPinCheck():
    from machine import TouchPad, Pin
    import time
 
-   #configure touchpin(s): GPIO32 (Touch 9), GPIO33 (Touch 8)
-   tPin32 = TouchPad(Pin(32))
-   tPin33 = TouchPad(Pin(33))
-   
+   # configure touchpin(s)
+   T_PIN1 = 27 # GPIO27 (Touch 7)
+   T_PIN2 = 14 # GPIO14 (Touch 6)
+   tPin1 = TouchPad(Pin(T_PIN1))
+   tPin2 = TouchPad(Pin(T_PIN2))
+      
    print('###### Touch pin check ######')
    print(' NOTE: This check only works if the touch pin was not tapped during startup!')
    print(' You have 10 seconds to tap a configured touch pin ;-)')
    
-   startValuetPin32 = tPin32.read()
-   startValuetPin33 = tPin33.read()
+   startValuetPin1 = tPin1.read()
+   startValuetPin2 = tPin2.read()
  
    for sec in range (20):
-      curValuetPin32 = tPin32.read()
-      curValuetPin33 = tPin33.read()
+      curValuetPin1 = tPin1.read()
+      curValuetPin2 = tPin2.read()
 
       # Checking whether the current value is less than 50% of the maximum value measured at startup
-      if ((curValuetPin32 / startValuetPin32 * 100) < 50): 
-         print(' Touch pin (GPIO32) tapped')
-      if ((curValuetPin33 / startValuetPin33 * 100) < 50): 
-         print(' Touch pin (GPIO33) tapped')  
+      if ((curValuetPin1 / startValuetPin1 * 100) < 50):
+         print(' Touch pin (GPIO%d) tapped' % T_PIN1)  
+      if ((curValuetPin2 / startValuetPin2 * 100) < 50): 
+         print(' Touch pin (GPIO%d) tapped' % T_PIN2)  
 
       time.sleep(0.5)
+
+#https://docs.micropython.org/en/latest/esp32/quickref.html#uart-serial-bus
+#https://docs.micropython.org/en/latest/library/machine.UART.html#machine-uart
+def uartReadSend():
+    from machine import UART
+    from machine import Timer
+    import sys
+    import time
+    
+    print('###### UART - reader/sender ######')
+    print(' NOTE: The UART communication on board "%s" via PIN "TX"(GPIO1) and "RX"(GPIO3)  \n' % ESP_BOARD_NAME +
+          '       is passed through to the REPL console, so no separate code is required.')
+    UART_TX_PIN = 32
+    UART_RX_PIN = 35
+    UART_BAUDRATE = 115200
+    UART_DATABITS = 8 # 7, 8 or 9
+    UART_PARITY = None # None, 0 (even) or 1 (odd).
+    UART_STOPBITS = 1 # 1 or 2
+    uart = UART(1, tx=UART_TX_PIN, rx=UART_RX_PIN, baudrate=UART_BAUDRATE, bits=8, parity=UART_PARITY, stop=UART_STOPBITS)
+    print(' UART configuration:\n  - Pins: TX=GPIO%d, RX=GPIO%d' % (UART_TX_PIN, UART_RX_PIN))
+    print('  - Baudrate: %d, databit(s): %d, parity: %s, stopbit(s): %d' % (UART_BAUDRATE, UART_DATABITS, UART_PARITY, UART_STOPBITS))
+    
+    try:
+       uartMode = int(input(" Please select UART mode (1: recieve data, 2: send data): "))
+    except ValueError:
+       print(' Invalid input. Please enter a valid number next time.')
+       return
+
+    def handleInterrupt(timer):
+       nonlocal stopCommand
+       stopCommand = True
+       print(' Timer interrupt!')
+       
+    if uartMode == 1:
+       print(' UART recieve mode. Waiting on UART messages for 10 seconds.')
+       timer = Timer(0) # Using one of the four hw timers (ID: 0-3) instead of virtual timer(-1).
+       timer.init(period=10000, mode=Timer.ONE_SHOT, callback = handleInterrupt)
+       stopCommand = False
+       while not stopCommand:
+          uartValue = uart.readline()
+          if uartValue != None:
+             print(' ' + uartValue.decode('utf-8'))
+             
+    elif uartMode == 2:
+       print(' UART sender mode. A UART test message is send every second for 10 seconds.')
+       for i in range(11):
+          uart.write("UART send test!")
+          time.sleep(1)
+    else:
+       print(' Operation not defined.')
 
 # -------------------- Toolbox loop --------------------
 while True:  
@@ -376,4 +432,5 @@ while True:
         
    print('')
    time.sleep(2)
+
 
