@@ -23,6 +23,7 @@ def showMenu():
    print(' 10. I2C - display (SSD1306)')
    print(' 11. Touch pin check')
    print(' 12. UART - reader/sender')
+   print(' 13. Software update (OTA)')
    print('-----------------------------------------')
 
 def showSelectedMenuEntry(argument):
@@ -37,7 +38,8 @@ def showSelectedMenuEntry(argument):
                 9: debugOpt,
                10: i2cDisplaySSD1306,
                11: touchPinCheck,
-               12: uartReadSend 
+               12: uartReadSend,
+               13: swUpdateOTA
              }
    switcher.get(argument, lambda: print('Invalid menu entry. Please select an available menu entry.'))()
 
@@ -186,6 +188,81 @@ def scanWLAN():
 
    print('Connection to WLAN "%s" successful.' % ssid.decode('utf-8'))
    
+# A more generic approach: https://github.com/RangerDigital/senko   
+def swUpdateOTA():
+   import network
+   import urequests as requests
+   import uhashlib
+   import ubinascii
+   import machine
+
+   wlan = network.WLAN(network.STA_IF)
+   if not wlan.isconnected():
+      print('No connection to Internet. Please connect first.')
+      return
+   
+   githubLink = 'https://raw.githubusercontent.com'
+   gitHubUser = 'KingKeule'
+   gitHubRepo = 'ESP32_Toolbox_MicroPython'
+   gitHubRepoBranch = 'develop'
+   fileName = 'main.py'
+   url = "{}/{}/{}/{}/{}".format(githubLink,gitHubUser, gitHubRepo, gitHubRepoBranch, fileName)
+   
+   print('###### Software update (OTA) ######')
+   print(' Update process: Compare the locally hashed file with the file downloaded and hashed from github:')
+   print(' %s' % url)
+   print(' When the hashes are not equal the file from github will be be installed and the device restarted.')
+   print(' ------------------------------------------------------------------------------------------------')
+   
+   try:
+      httpReq = requests.get(url, headers={})     
+   except Exception as e:
+      print('The specified URL address could not be opened. Reason: %s' % e)
+      return
+   
+   httpStatCode = httpReq.status_code
+   if httpStatCode == 200:
+      print(' Could open the given url. Downlaoding the file "%s" for comparison.' % fileName)
+      remoteFileText = httpReq.text
+      #print (remoteFile) 
+   else:
+      print(' Could not open the given url. HTTP statuscode: %s.' % httpStatCode)
+      return
+
+   # hash the remote file
+   remoteFileHashObj = uhashlib.sha256()
+   remoteFileHashObj.update(remoteFileText)
+   remoteFileHashHex = ubinascii.hexlify(remoteFileHashObj.digest()).decode('utf-8')
+   print(' Remote file (SHA256, HEX): %s' % remoteFileHashHex)
+   
+   # hash the local file
+   localFileHashObj = uhashlib.sha256()
+   with open(fileName,"rb") as file:
+      while True:
+            # Reading is buffered, so we can read smaller chunks
+            chunk = file.read(128)
+            if not chunk:
+                break
+            localFileHashObj.update(chunk)
+   file.close()
+   localFileHashHex = ubinascii.hexlify(localFileHashObj.digest()).decode('utf-8')
+   print(' Local file (SHA256, HEX):  %s' % localFileHashHex)     
+      
+   if remoteFileHashHex == localFileHashHex:
+      print(' The file is up to date.')
+      return
+
+   print(' The file is not up to date. Updating local file with github file.')
+   userSelectedOption = input(" Do you want to update your local file \"%s\" and do a hard reset [y/n]: " % fileName)
+   if userSelectedOption == 'y':
+      with open(fileName, "w") as file:
+         file.write(remoteFileText)
+      file.close
+      machine.reset()
+   else:
+       print(' Abort the software update process.')
+       return
+
 def portScanWLAN():
    #https://docs.micropython.org/en/latest/library/socket.html#socket.socket
    import network
@@ -432,5 +509,4 @@ while True:
         
    print('')
    time.sleep(2)
-
 
